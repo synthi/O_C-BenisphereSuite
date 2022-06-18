@@ -53,7 +53,7 @@ public:
         if (Clock(1)) step = 0; // Reset
 
         // Advance both rings
-        if (Clock(0)) {
+        if (Clock(0) && !Gate(1)) {
             last_clock = OC::CORE::ticks;
             ForEachChannel(ch)
             {
@@ -113,6 +113,8 @@ public:
         beats[0] = Unpack(data, PackLocation {4,4}) + 1;
         length[1] = Unpack(data, PackLocation {8,4}) + 1;
         beats[1] = Unpack(data, PackLocation {12,4}) + 1;
+        SetDisplayPositions(0, 24);
+        SetDisplayPositions(1, 16);
     }
 
 protected:
