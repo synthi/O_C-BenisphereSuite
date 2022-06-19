@@ -47,7 +47,8 @@ public:
             triplet_which = 0;  // Triplets reset to down beat
         }
 
-        if (Clock(0)) {
+
+        if (Clock(0) && !Gate(1)) {
         
             // Triplets: Track what triplet timing should be to span 4 normal clocks
             triplet_time = (ClockCycleTicks(0) * 4) / 3;

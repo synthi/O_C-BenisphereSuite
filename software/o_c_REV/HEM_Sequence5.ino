@@ -51,11 +51,10 @@ public:
         int play_note = note[step] + 60 + transpose;
         play_note = constrain(play_note, 0, 127);
 
-        if (Clock(0)) StartADCLag();
-        
-        
-        if (EndOfADCLag() && !Gate(1))  // Logarhythm: Don't clock if currently within a reset pulse, so overlapping clock+reset pulses go to step 0 instead of 1 and reset can "hold"
-        {
+
+        if (Clock(0) && !Clock(1)) StartADCLag();
+
+        if (EndOfADCLag()) {
             Advance(step);
             if (step == 0) ClockOut(1);
             play = 1;
