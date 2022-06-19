@@ -18,6 +18,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+
+// Merged PR from Qiemem: (See below: a1e3cf437ae8534534c3525615cfb90108fef131 )
+// PR notes:
+// In base Hemisphere, APP_MIDI's Reset would set all channels to 0 when the device restarted. After removing APP_MIDI, this no longer happens. 
+// Consequently, the channels output ~6v on startup and don't drop back down until an applet outputs a specific value to a channel. This can 
+// cause problems such as Stairs BOC trigger not being detectable on first reset.
+//
+// This PR fixes this by setting all channels to 0v on APP_HEMISPHERE's init.
+
+
 #include "OC_DAC.h"
 #include "OC_digital_inputs.h"
 #include "OC_visualfx.h"
@@ -60,7 +70,6 @@ enum HEMISPHERE_SETTINGS {
     HEMISPHERE_RIGHT_DATA_L,
     HEMISPHERE_LEFT_DATA_H,
     HEMISPHERE_RIGHT_DATA_H,
-    HEMISPHERE_CLOCK_DATA,
     HEMISPHERE_SETTING_LAST
 };
 
@@ -81,6 +90,8 @@ public:
         help_hemisphere = -1;
         clock_setup = 0;
 
+        OC::DAC::set_all_octave(0);  // PR fix for initializing all channels to 0 when Capt. MIDI is not present (From Qiemem a1e3cf437ae8534534c3525615cfb90108fef131 )
+
         SetApplet(0, get_applet_index_by_id(8)); // ADSR
         SetApplet(1, get_applet_index_by_id(26)); // Scale Duet
     }
@@ -93,7 +104,6 @@ public:
             uint32_t data = (values_[4 + h] << 16) + values_[2 + h];
             available_applets[index].OnDataReceive(h, data);
         }
-        ClockSetup.OnDataReceive(0, uint32_t(values_[HEMISPHERE_CLOCK_DATA]));
     }
 
     void SetApplet(int hemisphere, int index) {
@@ -245,7 +255,6 @@ public:
             apply_value(2 + h, data & 0xffff);
             apply_value(4 + h, (data >> 16) & 0xffff);
         }
-        apply_value(HEMISPHERE_CLOCK_DATA, ClockSetup.OnDataRequest(0));
     }
 
     void OnSendSysEx() {
@@ -334,7 +343,6 @@ SETTINGS_DECLARE(HemisphereManager, HEMISPHERE_SETTING_LAST) {
     {0, 0, 65535, "Data R low", NULL, settings::STORAGE_TYPE_U16},
     {0, 0, 65535, "Data L high", NULL, settings::STORAGE_TYPE_U16},
     {0, 0, 65535, "Data R high", NULL, settings::STORAGE_TYPE_U16},
-    {0, 0, 65535, "Clock data", NULL, settings::STORAGE_TYPE_U16},
 };
 
 HemisphereManager manager;
