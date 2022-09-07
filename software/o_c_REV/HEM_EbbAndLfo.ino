@@ -112,10 +112,12 @@ public:
     case 5: {
       out_a += direction;
       out_a %= 4;
+      break;
     }
     case 6: {
       out_b += direction;
       out_b %= 4;
+      break;
     }
     }
     if (knob_accel < (1 << 13))
