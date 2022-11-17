@@ -83,6 +83,11 @@ public:
         if (pulse_animation > 0) {
             pulse_animation--;
         }
+
+        // animate value changes
+        if (value_animation > 0) {
+          value_animation--;
+        }
     }
 
     void View() {
@@ -93,6 +98,7 @@ public:
 
     void OnButtonPress() {
         isEditing = !isEditing;
+        ResetCursor();
     }
 
     void OnEncoderMove(int direction) {
@@ -105,6 +111,7 @@ public:
             if (cursor < 12) {
                 // editing note probability
                 weights[cursor] = constrain(weights[cursor] += direction, 0, HEM_PROB_MEL_MAX_WEIGHT);
+                value_animation = HEMISPHERE_CURSOR_TICKS;
             } else {
                 // editing scaling
                 if (cursor == 12) down = constrain(down += direction, 1, up);
@@ -175,6 +182,10 @@ private:
     ProbLoopLinker *loop_linker = loop_linker->get();
 
     int pulse_animation = 0;
+    int value_animation = 0;
+    const uint8_t x[12] = {2, 7, 10, 15, 18, 26, 31, 34, 39, 42, 47, 50};
+    const uint8_t p[12] = {0, 1,  0,  1,  0,  0,  1,  0,  1,  0,  1,  0};
+    const char* n[12] = {"C", "C", "D", "D", "E", "F", "F", "G", "G", "A", "A", "B"};
 
     int GetNextWeightedPitch() {
         int total_weights = 0;
@@ -226,8 +237,6 @@ private:
     }
 
     void DrawParams() {
-        uint8_t x[12] = {2, 7, 10, 15, 18, 26, 31, 34, 39, 42, 47, 50};
-        uint8_t p[12] = {0, 1,  0,  1,  0,  0,  1,  0,  1,  0,  1,  0};
         int note = pitch % 12;
         int octave = (pitch - 60) / 12;
 
@@ -240,7 +249,12 @@ private:
                 gfxRect(xOffset - 1, yOffset, 3, 10);
             } else {
                 if (isEditing && i == cursor) {
-                    gfxLine(xOffset, yOffset, xOffset, yOffset + 10);
+                    // blink line when editing
+                    if (CursorBlink()) {
+                        gfxLine(xOffset, yOffset, xOffset, yOffset + 10);
+                    } else {
+                        gfxDottedLine(xOffset, yOffset, xOffset, yOffset + 10);
+                    }
                 } else {
                     gfxDottedLine(xOffset, yOffset, xOffset, yOffset + 10);    
                 }
@@ -250,7 +264,10 @@ private:
 
         // cursor for keys
         if (!isEditing) {
-            if (cursor < 12) gfxCursor(x[cursor] - 1, p[cursor] ? 25 : 60, 6);
+            if (cursor < 12) {
+                gfxCursor(x[cursor] - 1, p[cursor] ? 24 : 60, p[cursor] ? 5 : 6);
+                gfxCursor(x[cursor] - 1, p[cursor] ? 25 : 61, p[cursor] ? 5 : 6);
+            }
             if (cursor == 12) gfxCursor(7, 23, 22);
             if (cursor == 13) gfxCursor(37, 23, 22);
         }
@@ -278,6 +295,18 @@ private:
 
         //     gfxRect(x[note] + (p[note] ? 0 : 1), p[note] ? 29 : 54, 3, 2);
             gfxRect(58, 54 - (octave * 6), 3, 3);
+        }
+
+        if (value_animation > 0 && cursor < 12) {
+          gfxRect(1, 15, 60, 10);
+          gfxInvert(1, 15, 60, 10);
+
+          gfxPrint(18, 16, n[cursor]);
+          if (p[cursor]) {
+            gfxPrint(24, 16, "#");
+          }
+          gfxPrint(34, 16, weights[cursor]);
+          gfxInvert(1, 15, 60, 10);
         }
     }
 };

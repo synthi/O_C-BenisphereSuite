@@ -143,7 +143,10 @@ private:
         for (uint8_t i = 0; i < 12; i++)
         {
             if ((mask[scale] >> i) & 0x01) gfxInvert(x[i], (p[i] ? 37 : 51), 4 - p[i], 4 - p[i]);
-            if (i == (cursor - (scale * 12))) gfxCursor(x[i] - 1, p[i] ? 25 : 60, 6);
+            if (i == (cursor - (scale * 12))) {
+                gfxCursor(x[i] - 1, p[i] ? 24 : 60, p[i] ? 5 : 6);
+                gfxCursor(x[i] - 1, p[i] ? 25 : 61, p[i] ? 5 : 6);
+            }
         }
 
         // If C is selcted, display a selector on the higher C, too
