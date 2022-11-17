@@ -325,26 +325,29 @@ public:
      */
     bool Clock(int ch, bool physical = 0) {
         bool clocked = 0;
-        if (hemisphere == 0) {
-            if (ch == 0) clocked = OC::DigitalInputs::clocked<OC::DIGITAL_INPUT_1>();
-            if (ch == 1) clocked = OC::DigitalInputs::clocked<OC::DIGITAL_INPUT_2>();
-        } else if (hemisphere == 1) {
-            if (ch == 0) clocked = OC::DigitalInputs::clocked<OC::DIGITAL_INPUT_3>();
-            if (ch == 1) clocked = OC::DigitalInputs::clocked<OC::DIGITAL_INPUT_4>();
-        }
+        ClockManager *clock_m = clock_m->get();
 
-        if (ch == 0 && !physical) {
-            ClockManager *clock_m = clock_m->get();
-            // Logical Clock only on RIGHT hemisphere if forwarding is on
-            if ( hemisphere == 0 || clock_m->IsForwarded() ) {
-                if (clock_m->IsRunning()) clocked = clock_m->Tock();
-                else if (master_clock_bus) clocked = OC::DigitalInputs::clocked<OC::DIGITAL_INPUT_1>();
+        if (ch == 0) { // clock triggers
+            if (hemisphere == LEFT_HEMISPHERE) {
+                if (!physical && clock_m->IsRunning()) clocked = clock_m->Tock();
+                else clocked = OC::DigitalInputs::clocked<OC::DIGITAL_INPUT_1>();
+            } else { // right side is special
+                if (master_clock_bus) { // forwarding from left
+                    if (!physical && clock_m->IsRunning()) clocked = clock_m->Tock();
+                    else clocked = OC::DigitalInputs::clocked<OC::DIGITAL_INPUT_1>();
+                } 
+                else clocked = OC::DigitalInputs::clocked<OC::DIGITAL_INPUT_3>();
             }
+        } else if (ch == 1) { // simple physical trig check
+            if (hemisphere == LEFT_HEMISPHERE)
+                clocked = OC::DigitalInputs::clocked<OC::DIGITAL_INPUT_2>();
+            else
+                clocked = OC::DigitalInputs::clocked<OC::DIGITAL_INPUT_4>();
         }
 
         if (clocked) {
-        		cycle_ticks[ch] = OC::CORE::ticks - last_clock[ch];
-        		last_clock[ch] = OC::CORE::ticks;
+            cycle_ticks[ch] = OC::CORE::ticks - last_clock[ch];
+            last_clock[ch] = OC::CORE::ticks;
         }
         return clocked;
     }
