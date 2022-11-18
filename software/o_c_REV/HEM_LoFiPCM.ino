@@ -43,13 +43,13 @@ public:
             if (play || record || gated_record) head++;
             if (head >= length) {
                 head = 0;
-                record = 0;
+                //record = 0; //always be recording
                 ClockOut(1);
             }
 
             if (record || gated_record) {
                 uint32_t s = (In(0) + 32767) >> 8;
-                pcm[head] = (char)s;
+                pcm[(head-delay)%2048] = (char)s;
             }
 
             uint32_t s = LOFI_PCM2CV(pcm[head]);
@@ -100,7 +100,8 @@ private:
     bool record = 0; // Record activated via button
     bool gated_record = 0; // Record gated via digital in
     bool play = 0;
-    int head = 0; // Locatioon of play/record head
+    int head = 0; // Location of play/record head
+    int delay=1024; //delay time default 1/2 sec
     int countdown = HEM_LOFI_PCM_SPEED;
     int length = HEM_LOFI_PCM_BUFFER_SIZE;
     
