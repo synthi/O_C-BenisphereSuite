@@ -32,6 +32,7 @@ public:
     void Start() {
         countdown = HEM_LOFI_PCM_SPEED;
         for (int i = 0; i < HEM_LOFI_PCM_BUFFER_SIZE; i++) pcm[i] = 127; //char is unsigned in teensy (0-255)?
+        selected = 1; //for gui
     }
 
     void Controller() {
@@ -45,10 +46,10 @@ public:
                 head = 0;               
                 ClockOut(1);
             }
-
-            int writehead = (head+length+delaytime) % length; //have to add the extra length to keep modulo positive in case delaytime is neg
+            int dt = delaytime_pct * length / 100; //convert delaytime to length in samples 
+            int writehead = (head+length + dt) % length; //have to add the extra length to keep modulo positive in case delaytime is neg
             uint32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
-            uint32_t feedbackmix = (min((tapeout / 2  + In(0)), cliplimit) + 32512) >> 8; //add to the feedback, offset and bitshift down
+            uint32_t feedbackmix = (min((tapeout * feedback / 100  + In(0)), cliplimit) + 32512) >> 8; //add to the feedback, offset and bitshift down
             pcm[writehead] = (char)feedbackmix;
             
             uint32_t s = LOFI_PCM2CV(pcm[head]);
@@ -67,13 +68,18 @@ public:
     }
 
     void OnButtonPress() {
-        //record = 1 - record;
-        //play = 0;
-        //head = 0;
+        selected = 1 - selected;
+        ResetCursor();
     }
 
     void OnEncoderMove(int direction) {
-        length = constrain(length += (direction * 32), 32, HEM_LOFI_PCM_BUFFER_SIZE);
+        if (selected == 0) delaytime_pct = constrain(delaytime_pct += direction, 0, 99);
+        if (selected == 1) feedback = constrain(feedback += direction, 0, 99);
+
+        //amp_offset_cv = Proportion(amp_offset_pct, 100, HEMISPHERE_MAX_CV);
+        //p[cursor] = constrain(p[cursor] += direction, 0, 100);
+
+    
     }
 
     uint32_t OnDataRequest() {
@@ -100,16 +106,13 @@ private:
     bool gated_record = 0; // Record gated via digital in
     bool play = 0; //play always on
     int head = 0; // Locatioon of play/record head
-    int delaytime = 1024; //1024+2048 cant be under buffer size because modulo neg nums
+    int delaytime_pct = 50; //delaytime as percentage of delayline buffer
+    int feedback = 50;
     int countdown = HEM_LOFI_PCM_SPEED;
     int length = HEM_LOFI_PCM_BUFFER_SIZE;
     uint32_t cliplimit = 32612;
+    int selected; //for gui
      
-    //void DrawParams() {
-        //DrawStop(3, 15);
-        //DrawPlay(26, 15);
-        //DrawRecord(50, 15);
-    //}
     
     void DrawWaveform() {
         int inc = HEM_LOFI_PCM_BUFFER_SIZE / 256;
@@ -141,11 +144,10 @@ private:
     {
         for (int param = 0; param < 2; param++)
         {
-            gfxPrint(31 * param, 15, param ? "Len" : "Fbk");
-            //if (param == selected) gfxCursor(0 + (31 * param), 23, 30);
-
-            // Show the icon if this random calculator is clocked
-            //if (operation[ch] == 6 && rand_clocked[ch]) gfxIcon(20 + 31 * ch, 15, CLOCK_ICON);
+            gfxPrint(31 * param, 15, param ? "Fb: " : "Ln: ");
+            gfxPrint(16, 15, delaytime_pct);
+            gfxPrint(48, 15, feedback);
+            if (param == selected) gfxCursor(0 + (31 * param), 23, 30);
         }
     }
     
