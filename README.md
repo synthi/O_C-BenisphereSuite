@@ -1,5 +1,18 @@
 Hemisphere Suite: Alternate Alternate Firmware for Ornament and Crime
  - Logarhythm Branch
+
+**USE THE OLDER ARDUINO 1.8.1 and Teensyduino 1.35 NEWER VERSIONS DON'T WORK**
+
+**USE THE OLDER ARDUINO 1.8.1 and Teensyduino 1.35 NEWER VERSIONS DON'T WORK**
+
+**USE THE OLDER ARDUINO 1.8.1 and Teensyduino 1.35 NEWER VERSIONS DON'T WORK**
+
+On your old computer dumba**
+
+This branch makes a very lofi tape delay out of the lofi recorder
+
+
+
 ===
 
 ![My image](https://farm1.staticflickr.com/676/20090774694_b56e557693_b.jpg)
