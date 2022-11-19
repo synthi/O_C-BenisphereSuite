@@ -40,21 +40,17 @@ public:
 
         countdown--;
         if (countdown == 0) {
-            if (play || record || gated_record) head++;
+            head++;
             if (head >= length) {
-                head = 0;
-                //record = 0; //always be recording
+                head = 0;               
                 ClockOut(1);
             }
 
-            if (record || gated_record) {
-                //uint32_t s = (In(0) + 32767) >> 8; //offset and bitshift down
-                int writehead = (head+length+delaytime) % length; //have to add the extra length to keep modulo positive in case delaytime is neg
-                uint32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
-                uint32_t feedbackmix = (min((tapeout / 2  + In(0)), cliplimit) + 32512) >> 8; //add to the feedback, offset and bitshift down
-                pcm[writehead] = (char)feedbackmix;
-            }
-
+            int writehead = (head+length+delaytime) % length; //have to add the extra length to keep modulo positive in case delaytime is neg
+            uint32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
+            uint32_t feedbackmix = (min((tapeout / 2  + In(0)), cliplimit) + 32512) >> 8; //add to the feedback, offset and bitshift down
+            pcm[writehead] = (char)feedbackmix;
+            
             uint32_t s = LOFI_PCM2CV(pcm[head]);
             int SOS = In(1); // Sound-on-sound
             int live = Proportion(SOS, HEMISPHERE_MAX_CV, In(0)); //max_cv is 7680 scales vol. of live 
@@ -66,14 +62,14 @@ public:
 
     void View() {
         gfxHeader(applet_name());
-        DrawTransportBar();
+        DrawSelector();
         DrawWaveform();
     }
 
     void OnButtonPress() {
-        record = 1 - record;
-        play = 0;
-        head = 0;
+        //record = 1 - record;
+        //play = 0;
+        //head = 0;
     }
 
     void OnEncoderMove(int direction) {
@@ -100,20 +96,20 @@ protected:
     
 private:
     char pcm[HEM_LOFI_PCM_BUFFER_SIZE];
-    bool record = 0; // Record activated via button
+    bool record = 0; // Record always on
     bool gated_record = 0; // Record gated via digital in
-    bool play = 0;
+    bool play = 0; //play always on
     int head = 0; // Locatioon of play/record head
     int delaytime = 1024; //1024+2048 cant be under buffer size because modulo neg nums
     int countdown = HEM_LOFI_PCM_SPEED;
     int length = HEM_LOFI_PCM_BUFFER_SIZE;
     uint32_t cliplimit = 32612;
      
-    void DrawTransportBar() {
-        DrawStop(3, 15);
-        DrawPlay(26, 15);
-        DrawRecord(50, 15);
-    }
+    //void DrawParams() {
+        //DrawStop(3, 15);
+        //DrawPlay(26, 15);
+        //DrawRecord(50, 15);
+    //}
     
     void DrawWaveform() {
         int inc = HEM_LOFI_PCM_BUFFER_SIZE / 256;
@@ -139,7 +135,23 @@ private:
         }
     }
     
-    void DrawStop(int x, int y) {
+
+    
+    void DrawSelector()
+    {
+        for (int param = 0; param < 2; param++)
+        {
+            gfxPrint(31 * param, 15, param ? "Len" : "Fbk");
+            //if (param == selected) gfxCursor(0 + (31 * param), 23, 30);
+
+            // Show the icon if this random calculator is clocked
+            //if (operation[ch] == 6 && rand_clocked[ch]) gfxIcon(20 + 31 * ch, 15, CLOCK_ICON);
+        }
+    }
+    
+    
+    
+ /*   void DrawStop(int x, int y) {
         if (record || play || gated_record) gfxFrame(x, y, 11, 11);
         else gfxRect(x, y, 11, 11);
     }
@@ -157,7 +169,6 @@ private:
             gfxLine(x, y + 10, x + 10, y + 5);
         }
     }
-    
     void DrawRecord(int x, int y) {
         gfxCircle(x + 5, y + 5, 5);
         if (record || gated_record) {
@@ -167,6 +178,7 @@ private:
             }
         }
     }
+*/    
     
 };
 
