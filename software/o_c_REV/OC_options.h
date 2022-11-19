@@ -32,6 +32,7 @@
 #define ENABLE_APP_CAPTAIN_MIDI
 //#define ENABLE_APP_DARKEST_TIMELINE
 //#define ENABLE_APP_PONG
+//#define ENABLE_THIRD_APP //there was not enough space w dtl and pong disabled
 
 // Define this to include some new, custom scales for Hemispheres Logarhythm Mod (optional if porting individual applets)
 // This uses approximately 640 additional bytes of program storage space

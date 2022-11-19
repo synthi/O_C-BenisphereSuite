@@ -20,18 +20,18 @@
 
 #define HEM_LOFI_PCM_BUFFER_SIZE 2048
 #define HEM_LOFI_PCM_SPEED 8
-#define LOFI_PCM2CV(S) ((uint32_t)S << 8) - 32767;
+#define LOFI_PCM2CV(S) ((uint32_t)S << 8) - 32512 //32767 is 128 << 8 32512 is 127 << 8 // 0-126 is neg, 127 is 0, 128-254 is pos
 
 class LoFiPCM : public HemisphereApplet {
 public:
 
     const char* applet_name() { // Maximum 10 characters
-        return "LoFi Tape";
+        return "LoFi Echo";
     }
 
     void Start() {
         countdown = HEM_LOFI_PCM_SPEED;
-        for (int i = 0; i < HEM_LOFI_PCM_BUFFER_SIZE; i++) pcm[i] = 127;
+        for (int i = 0; i < HEM_LOFI_PCM_BUFFER_SIZE; i++) pcm[i] = 127; //char is unsigned in teensy (0-255)?
     }
 
     void Controller() {
@@ -48,13 +48,16 @@ public:
             }
 
             if (record || gated_record) {
-                uint32_t s = (In(0) + 32767) >> 8;
-                pcm[(head-delay)%2048] = (char)s;
+                //uint32_t s = (In(0) + 32767) >> 8; //offset and bitshift down
+                int writehead = (head+length+delaytime) % length; //have to add the extra length to keep modulo positive in case delaytime is neg
+                uint32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
+                uint32_t feedbackmix = (min((tapeout / 2  + In(0)), cliplimit) + 32512) >> 8; //add to the feedback, offset and bitshift down
+                pcm[writehead] = (char)feedbackmix;
             }
 
             uint32_t s = LOFI_PCM2CV(pcm[head]);
             int SOS = In(1); // Sound-on-sound
-            int live = Proportion(SOS, HEMISPHERE_MAX_CV, In(0));
+            int live = Proportion(SOS, HEMISPHERE_MAX_CV, In(0)); //max_cv is 7680 scales vol. of live 
             int loop = play ? Proportion(HEMISPHERE_MAX_CV - SOS, HEMISPHERE_MAX_CV, s) : 0;
             Out(0, live + loop);
             countdown = HEM_LOFI_PCM_SPEED;
@@ -100,11 +103,12 @@ private:
     bool record = 0; // Record activated via button
     bool gated_record = 0; // Record gated via digital in
     bool play = 0;
-    int head = 0; // Location of play/record head
-    int delay=1024; //delay time default 1/2 sec
+    int head = 0; // Locatioon of play/record head
+    int delaytime = 1024; //1024+2048 cant be under buffer size because modulo neg nums
     int countdown = HEM_LOFI_PCM_SPEED;
     int length = HEM_LOFI_PCM_BUFFER_SIZE;
-    
+    uint32_t cliplimit = 32612;
+     
     void DrawTransportBar() {
         DrawStop(3, 15);
         DrawPlay(26, 15);
