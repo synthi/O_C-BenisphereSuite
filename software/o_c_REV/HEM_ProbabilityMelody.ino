@@ -55,15 +55,22 @@ public:
 
 
         int downCv = DetentedIn(0);
+        int oldDown = down;
         if (downCv < 0) down = 1;        
         if (downCv > 0) {
             down = constrain(ProportionCV(downCv, HEM_PROB_MEL_MAX_RANGE + 1), 1, up);
         }
 
         int upCv = DetentedIn(1);
+        int oldUp = up;
         if (upCv < 0) up = 1;        
         if (upCv > 0) {
             up = constrain(ProportionCV(upCv, HEM_PROB_MEL_MAX_RANGE + 1), down, HEM_PROB_MEL_MAX_RANGE);
+        }
+
+        // reseed loop if range has changed due to CV
+        if (isLooping && (oldDown != down || oldUp != up)) {
+            GenerateLoop();
         }
 
         if (Clock(0) || loop_linker->Ready()) {
