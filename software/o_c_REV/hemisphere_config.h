@@ -20,7 +20,7 @@
     DECLARE_APPLET( 15, 0x02, AnnularFusion), \
     DECLARE_APPLET( 47, 0x09, ASR), \
     DECLARE_APPLET( 56, 0x10, AttenuateOffset), \
-    DECLARE_APPLET( 51, 0x80, BootsNCat), \
+    DECLARE_APPLET( 51, 0x80, LoFiVerb), \
     DECLARE_APPLET(  4, 0x14, Brancher), \
     DECLARE_APPLET( 31, 0x04, Burst), \
     DECLARE_APPLET( 59, 0x10, Button), \

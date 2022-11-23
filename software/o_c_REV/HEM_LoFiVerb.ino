@@ -18,20 +18,27 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#define HEM_LOFI_PCM_BUFFER_SIZE 2048
-#define HEM_LOFI_PCM_SPEED 8
+#define HEM_LOFI_VERB_BUFFER_SIZE 307
+#define HEM_LOFI_VERB_ALLPASS_SIZE 105
+
+#define HEM_LOFI_VERB_SPEED 2 //cant be lower than 2 for memory reasons unless lofi echo is removed
+
 #define LOFI_PCM2CV(S) ((uint32_t)S << 8) - 32512 //32767 is 128 << 8 32512 is 127 << 8 // 0-126 is neg, 127 is 0, 128-254 is pos
 
-class LoFiPCM : public HemisphereApplet {
+class LoFiVerb : public HemisphereApplet {
 public:
 
     const char* applet_name() { // Maximum 10 characters
-        return "LoFi Echo";
+        return "LoFi Verb";
     }
 
     void Start() {
-        countdown = HEM_LOFI_PCM_SPEED;
-        for (int i = 0; i < HEM_LOFI_PCM_BUFFER_SIZE; i++) pcm[i] = 127; //char is unsigned in teensy (0-255)?
+        countdown = HEM_LOFI_VERB_SPEED;
+        for (int i = 0; i < HEM_LOFI_VERB_BUFFER_SIZE; i++) pcm[i] = 127; //char is unsigned in teensy (0-255)?   
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < HEM_LOFI_VERB_ALLPASS_SIZE; j++) allpass_pcm[i][j] = 127;
+        }
+        
         selected = 1; //for gui
     }
 
@@ -44,27 +51,58 @@ public:
             head++;
             if (head >= length) {
                 head = 0;               
-                ClockOut(1);
+                //ClockOut(1);
             }
-            int dt = delaytime_pct * length / 100; //convert delaytime to length in samples 
-            int writehead = (head+length + dt) % length; //have to add the extra length to keep modulo positive in case delaytime is neg
-            uint32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
-            uint32_t feedbackmix = (min((tapeout * feedback / 100  + In(0)), cliplimit) + 32512) >> 8; //add to the feedback, offset and bitshift down
-            pcm[writehead] = (char)feedbackmix;
             
-            uint32_t s = LOFI_PCM2CV(pcm[head]);
+            ap_head++;
+            if (ap_head >= ap_length) {
+                ap_head = 0;               
+               
+            }
+
+            for (int i = 0; i < 8; i++){ //for each of the 8 multitap heads; 
+                int dt = multitap_heads[i] / HEM_LOFI_VERB_SPEED; //convert delaytime to length in samples 
+                int writehead = (head+length + dt) % length; //have to add the extra length to keep modulo positive in case delaytime is neg   
+                uint32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
+                uint32_t feedbackmix = (min((tapeout * feedback / 100  + In(0)), cliplimit) + 32512) >> 8; //add to the feedback, offset and bitshift down
+                pcm[writehead] = (char)feedbackmix;
+            }
+
+            //char ap = pcm[head]; //8 bit char of result of multitap 0 to 254            
+            uint32_t ap_int = LOFI_PCM2CV(pcm[head]); //convert to signed full scale
+            
+            for (int i = 0; i < 4; i++){ //diffusors in series -- all done in 8 bit signed int
+                uint32_t dry = ap_int;
+                int dt = allpass_delay_times[i] / HEM_LOFI_VERB_SPEED; //delay time
+                int writehead = (ap_head + ap_length + dt) % ap_length; //add delay time to get write location
+                uint32_t tapeout = LOFI_PCM2CV(allpass_pcm[i][ap_head]);
+                uint32_t feedbackmix = (min((tapeout * 50 / 100  + dry), cliplimit) + 32512) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
+                allpass_pcm[i][writehead] = (char)feedbackmix; 
+                //int8_t invertedfb = feedbackmix * (-1); //invert signal (0-254 around "0" @ 127)
+                //ap_int = max(ap_loclip, min((invertedfb / 2) + tapeout, ap_hiclip)); //output = -buffer[bufidx]*feedback + bufout
+                uint32_t inv_dry = dry*(-1); 
+                ap_int = tapeout + inv_dry;
+            }                 
+
+            //char ap = (char)ap_int;
+            //uint32_t s = LOFI_PCM2CV(ap); //convert back to CV scale
+            uint32_t s = ap_int;
+
+            //uint32_t s = LOFI_PCM2CV(pcm[head]); 
+
             int SOS = In(1); // Sound-on-sound
             int live = Proportion(SOS, HEMISPHERE_MAX_CV, In(0)); //max_cv is 7680 scales vol. of live 
             int loop = play ? Proportion(HEMISPHERE_MAX_CV - SOS, HEMISPHERE_MAX_CV, s) : 0;
             Out(0, live + loop);
-            countdown = HEM_LOFI_PCM_SPEED;
+            countdown = HEM_LOFI_VERB_SPEED;
+            
         }
     }
 
     void View() {
         gfxHeader(applet_name());
         DrawSelector();
-        DrawWaveform();
+        //DrawWaveform();
     }
 
     void OnButtonPress() {
@@ -73,7 +111,7 @@ public:
     }
 
     void OnEncoderMove(int direction) {
-        if (selected == 0) delaytime_pct = constrain(delaytime_pct += direction, 0, 99);
+        //if (selected == 0) delaytime_pct = constrain(delaytime_pct += direction, 0, 99);
         if (selected == 1) feedback = constrain(feedback += direction, 0, 99);
 
         //amp_offset_cv = Proportion(amp_offset_pct, 100, HEMISPHERE_MAX_CV);
@@ -101,21 +139,29 @@ protected:
     }
     
 private:
-    char pcm[HEM_LOFI_PCM_BUFFER_SIZE];
+    char pcm[HEM_LOFI_VERB_BUFFER_SIZE];
+    uint16_t multitap_heads[8] = {438,613,565,538,484,514,450,422}; //adapted for 16.7khz
+    uint32_t allpass_delay_times[4] = {85,210,167,129}; //adapted for 16.7khz
+    char allpass_pcm[4][HEM_LOFI_VERB_ALLPASS_SIZE]; //4 buffers of 105 samples each
     bool record = 0; // Record always on
     bool gated_record = 0; // Record gated via digital in
     bool play = 0; //play always on
-    int head = 0; // Locatioon of play/record head
-    int delaytime_pct = 50; //delaytime as percentage of delayline buffer
-    int feedback = 50;
-    int countdown = HEM_LOFI_PCM_SPEED;
-    int length = HEM_LOFI_PCM_BUFFER_SIZE;
+    int head = 0; // Locatioon of delay head
+    int ap_head = 0; // Locatioon of allpass head
+
+    //int delaytime_pct = 50; //delaytime as percentage of delayline buffer
+    int feedback = 80;
+    int countdown = HEM_LOFI_VERB_SPEED;
+    int length = HEM_LOFI_VERB_BUFFER_SIZE;
+    int ap_length = HEM_LOFI_VERB_ALLPASS_SIZE;
     uint32_t cliplimit = 32512;
+    int8_t ap_hiclip = 127;
+    int8_t ap_loclip = -127;
     int selected; //for gui
      
     
     void DrawWaveform() {
-        int inc = HEM_LOFI_PCM_BUFFER_SIZE / 256;
+        int inc = HEM_LOFI_VERB_BUFFER_SIZE / 256;
         int disp[32];
         int high = 1;
         int pos = head - (inc * 15) - random(1,3); // Try to center the head
@@ -126,7 +172,7 @@ private:
             if (v < 0) v = 0;
             if (v > high) high = v;
             pos += inc;
-            if (pos >= HEM_LOFI_PCM_BUFFER_SIZE) pos -= length;
+            if (pos >= HEM_LOFI_VERB_BUFFER_SIZE) pos -= length;
             disp[i] = v;
         }
         
@@ -145,7 +191,7 @@ private:
         for (int param = 0; param < 2; param++)
         {
             gfxPrint(31 * param, 15, param ? "Fb: " : "Ln: ");
-            gfxPrint(16, 15, delaytime_pct);
+            //gfxPrint(16, 15, delaytime_pct);
             gfxPrint(48, 15, feedback);
             if (param == selected) gfxCursor(0 + (31 * param), 23, 30);
         }
@@ -188,41 +234,41 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 //// Hemisphere Applet Functions
 ///
-///  Once you run the find-and-replace to make these refer to LoFiPCM,
+///  Once you run the find-and-replace to make these refer to LoFiVerb,
 ///  it's usually not necessary to do anything with these functions. You
 ///  should prefer to handle things in the HemisphereApplet child class
 ///  above.
 ////////////////////////////////////////////////////////////////////////////////
-LoFiPCM LoFiPCM_instance[2];
+LoFiVerb LoFiVerb_instance[2];
 
-void LoFiPCM_Start(bool hemisphere) {
-    LoFiPCM_instance[hemisphere].BaseStart(hemisphere);
+void LoFiVerb_Start(bool hemisphere) {
+    LoFiVerb_instance[hemisphere].BaseStart(hemisphere);
 }
 
-void LoFiPCM_Controller(bool hemisphere, bool forwarding) {
-    LoFiPCM_instance[hemisphere].BaseController(forwarding);
+void LoFiVerb_Controller(bool hemisphere, bool forwarding) {
+    LoFiVerb_instance[hemisphere].BaseController(forwarding);
 }
 
-void LoFiPCM_View(bool hemisphere) {
-    LoFiPCM_instance[hemisphere].BaseView();
+void LoFiVerb_View(bool hemisphere) {
+    LoFiVerb_instance[hemisphere].BaseView();
 }
 
-void LoFiPCM_OnButtonPress(bool hemisphere) {
-    LoFiPCM_instance[hemisphere].OnButtonPress();
+void LoFiVerb_OnButtonPress(bool hemisphere) {
+    LoFiVerb_instance[hemisphere].OnButtonPress();
 }
 
-void LoFiPCM_OnEncoderMove(bool hemisphere, int direction) {
-    LoFiPCM_instance[hemisphere].OnEncoderMove(direction);
+void LoFiVerb_OnEncoderMove(bool hemisphere, int direction) {
+    LoFiVerb_instance[hemisphere].OnEncoderMove(direction);
 }
 
-void LoFiPCM_ToggleHelpScreen(bool hemisphere) {
-    LoFiPCM_instance[hemisphere].HelpScreen();
+void LoFiVerb_ToggleHelpScreen(bool hemisphere) {
+    LoFiVerb_instance[hemisphere].HelpScreen();
 }
 
-uint32_t LoFiPCM_OnDataRequest(bool hemisphere) {
-    return LoFiPCM_instance[hemisphere].OnDataRequest();
+uint32_t LoFiVerb_OnDataRequest(bool hemisphere) {
+    return LoFiVerb_instance[hemisphere].OnDataRequest();
 }
 
-void LoFiPCM_OnDataReceive(bool hemisphere, uint32_t data) {
-    LoFiPCM_instance[hemisphere].OnDataReceive(data);
+void LoFiVerb_OnDataReceive(bool hemisphere, uint32_t data) {
+    LoFiVerb_instance[hemisphere].OnDataReceive(data);
 }
