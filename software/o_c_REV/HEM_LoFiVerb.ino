@@ -78,10 +78,13 @@ public:
                 uint32_t tapeout = LOFI_PCM2CV(allpass_pcm[i][ap_head]);
                 uint32_t feedbackmix = (min((tapeout * 50 / 100  + dry), cliplimit) + 32512) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
                 allpass_pcm[i][writehead] = (char)feedbackmix; 
-                //int8_t invertedfb = feedbackmix * (-1); //invert signal (0-254 around "0" @ 127)
-                //ap_int = max(ap_loclip, min((invertedfb / 2) + tapeout, ap_hiclip)); //output = -buffer[bufidx]*feedback + bufout
-                uint32_t inv_dry = dry*(-1); 
-                ap_int = tapeout + inv_dry;
+                ap_int =  tapeout - ((tapeout * 50/100) + dry) * 50/100; //freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback;
+
+                //   
+
+                
+                //ap_int = tapeout + dry*(-1);//orig. freeverb
+                
             }                 
 
             //char ap = (char)ap_int;
