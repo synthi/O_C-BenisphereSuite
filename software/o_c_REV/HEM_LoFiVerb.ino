@@ -70,23 +70,25 @@ public:
 
             //char ap = pcm[head]; //8 bit char of result of multitap 0 to 254            
             uint32_t ap_int = LOFI_PCM2CV(pcm[head]); //convert to signed full scale
+
+            if (allpass==1){ 
+                for (int i = 0; i < 4; i++){ //diffusors in series -- all done in 8 bit signed int
+                    uint32_t dry = ap_int;
+                    int dt = allpass_delay_times[i] / HEM_LOFI_VERB_SPEED; //delay time
+                    int writehead = (ap_head + ap_length + dt) % ap_length; //add delay time to get write location
+                    uint32_t tapeout = LOFI_PCM2CV(allpass_pcm[i][ap_head]);
+                    uint32_t feedbackmix = (min((tapeout * 50 / 100  + dry), cliplimit) + 32512) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
+                    allpass_pcm[i][writehead] = (char)feedbackmix; 
+                    ap_int =  tapeout - ((tapeout * 50/100) + dry) * 50/100; //freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback;
+
+                    //   
+
+                
+                    //ap_int = tapeout + dry*(-1);//orig. freeverb
+                
+                }                 
+            }
             
-            for (int i = 0; i < 4; i++){ //diffusors in series -- all done in 8 bit signed int
-                uint32_t dry = ap_int;
-                int dt = allpass_delay_times[i] / HEM_LOFI_VERB_SPEED; //delay time
-                int writehead = (ap_head + ap_length + dt) % ap_length; //add delay time to get write location
-                uint32_t tapeout = LOFI_PCM2CV(allpass_pcm[i][ap_head]);
-                uint32_t feedbackmix = (min((tapeout * 50 / 100  + dry), cliplimit) + 32512) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
-                allpass_pcm[i][writehead] = (char)feedbackmix; 
-                ap_int =  tapeout - ((tapeout * 50/100) + dry) * 50/100; //freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback;
-
-                //   
-
-                
-                //ap_int = tapeout + dry*(-1);//orig. freeverb
-                
-            }                 
-
             //char ap = (char)ap_int;
             //uint32_t s = LOFI_PCM2CV(ap); //convert back to CV scale
             uint32_t s = ap_int;
@@ -114,7 +116,7 @@ public:
     }
 
     void OnEncoderMove(int direction) {
-        //if (selected == 0) delaytime_pct = constrain(delaytime_pct += direction, 0, 99);
+        if (selected == 0) allpass =  constrain(allpass += direction, 0, 1);
         if (selected == 1) feedback = constrain(feedback += direction, 0, 99);
 
         //amp_offset_cv = Proportion(amp_offset_pct, 100, HEMISPHERE_MAX_CV);
@@ -151,7 +153,8 @@ private:
     bool play = 0; //play always on
     int head = 0; // Locatioon of delay head
     int ap_head = 0; // Locatioon of allpass head
-
+    int allpass = 1; //allpass on or off
+    
     //int delaytime_pct = 50; //delaytime as percentage of delayline buffer
     int feedback = 80;
     int countdown = HEM_LOFI_VERB_SPEED;
@@ -193,8 +196,8 @@ private:
     {
         for (int param = 0; param < 2; param++)
         {
-            gfxPrint(31 * param, 15, param ? "Fb: " : "Ln: ");
-            //gfxPrint(16, 15, delaytime_pct);
+            gfxPrint(31 * param, 15, param ? "fb: " : "ap: ");
+            gfxPrint(16, 15, allpass);
             gfxPrint(48, 15, feedback);
             if (param == selected) gfxCursor(0 + (31 * param), 23, 30);
         }
