@@ -70,28 +70,29 @@ public:
 
             //char ap = pcm[head]; //8 bit char of result of multitap 0 to 254            
             uint32_t ap_int = LOFI_PCM2CV(pcm[head]); //convert to signed full scale
-
+            uint32_t mix = (ap_int / 8 ) + In(0); // mix 1/8 signal of comb with input;
+            
             if (allpass==1){ 
                 for (int i = 0; i < 4; i++){ //diffusors in series -- all done in 8 bit signed int
-                    uint32_t dry = ap_int;
+                    uint32_t dry = mix;
                     int dt = allpass_delay_times[i] / HEM_LOFI_VERB_SPEED; //delay time
                     int writehead = (ap_head + ap_length + dt) % ap_length; //add delay time to get write location
                     uint32_t tapeout = LOFI_PCM2CV(allpass_pcm[i][ap_head]);
-                    uint32_t feedbackmix = (min((tapeout * 50 / 100  + dry), cliplimit) + 32512) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
+                    uint32_t feedbackmix = (min((tapeout * 50 / 100  + dry) * 1/4, cliplimit) + 32512) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
                     allpass_pcm[i][writehead] = (char)feedbackmix; 
-                    ap_int =  tapeout - ((tapeout * 50/100) + dry) * 50/100; //freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback;
+                    mix =  tapeout - ((tapeout * 50/100) + dry) * 50/100; //freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback;
 
                     //   
 
                 
-                    //ap_int = tapeout + dry*(-1);//orig. freeverb
+                    //mix = tapeout + dry*(-1);//orig. freeverb
                 
                 }                 
             }
             
             //char ap = (char)ap_int;
             //uint32_t s = LOFI_PCM2CV(ap); //convert back to CV scale
-            uint32_t s = ap_int;
+            uint32_t s = mix;
 
             //uint32_t s = LOFI_PCM2CV(pcm[head]); 
 
