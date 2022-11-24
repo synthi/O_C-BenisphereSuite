@@ -19,7 +19,7 @@
 // SOFTWARE.
 
 #define HEM_LOFI_VERB_BUFFER_SIZE 307
-#define HEM_LOFI_VERB_ALLPASS_SIZE 105
+#define HEM_LOFI_VERB_ALLPASS_SIZE 106
 
 #define HEM_LOFI_VERB_SPEED 2 //cant be lower than 2 for memory reasons unless lofi echo is removed
 
@@ -78,11 +78,10 @@ public:
                     int dt = allpass_delay_times[i] / HEM_LOFI_VERB_SPEED; //delay time
                     int writehead = (ap_head + ap_length + dt) % ap_length; //add delay time to get write location
                     uint32_t tapeout = LOFI_PCM2CV(allpass_pcm[i][ap_head]);
-                    uint32_t feedbackmix = (min((tapeout * 50 / 100  + dry) * 1/4, cliplimit) + 32512) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
+                    uint32_t feedbackmix = (min((tapeout * 50 / 100  + dry), cliplimit) + 32512) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
                     allpass_pcm[i][writehead] = (char)feedbackmix; 
-                    mix =  tapeout - ((tapeout * 50/100) + dry) * 50/100; //freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback;
-
-                    //   
+                    mix =  (tapeout - ((tapeout * 50/100) + dry) * 50/100 ) / 2; freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback; //
+                    //blows up if not divided by 2   
 
                 
                     //mix = tapeout + dry*(-1);//orig. freeverb
