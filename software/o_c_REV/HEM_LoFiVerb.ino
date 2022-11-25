@@ -63,25 +63,25 @@ public:
             for (int i = 0; i < 8; i++){ //for each of the 8 multitap heads; 
                 int dt = multitap_heads[i] / HEM_LOFI_VERB_SPEED; //convert delaytime to length in samples 
                 int writehead = (head+length + dt) % length; //have to add the extra length to keep modulo positive in case delaytime is neg   
-                uint32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
-                uint32_t feedbackmix = (min((tapeout * feedback / 100  + In(0)), cliplimit) + 32512) >> 8; //add to the feedback, offset and bitshift down
+                int32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
+                int32_t feedbackmix = constrain(((tapeout * feedback / 100  + In(0)) + 32512), locliplimit, cliplimit) >> 8; //add to the feedback, offset and bitshift down
                 pcm[writehead] = (char)feedbackmix;
             }
 
             //char ap = pcm[head]; //8 bit char of result of multitap 0 to 254            
-            uint32_t ap_int = LOFI_PCM2CV(pcm[head]); //convert to signed full scale
-            uint32_t mix = (ap_int / 8 ) + In(0); // mix 1/8 signal of comb with input;
+            int32_t ap_int = LOFI_PCM2CV(pcm[head]); //convert to signed full scale
+            int32_t mix = (ap_int ) + In(0); // mix 1/8 signal of comb with input;
             
             if (allpass==1){ 
                 for (int i = 0; i < 4; i++){ //diffusors in series -- all done in 8 bit signed int
-                    uint32_t dry = mix;
+                    int32_t dry = mix;
                     int dt = allpass_delay_times[i] / HEM_LOFI_VERB_SPEED; //delay time
                     int writehead = (ap_head + ap_length + dt) % ap_length; //add delay time to get write location
-                    uint32_t tapeout = LOFI_PCM2CV(allpass_pcm[i][ap_head]);
-                    uint32_t feedbackmix = (min((tapeout * 50 / 100  + dry), cliplimit) + 32512) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
+                    int32_t tapeout = LOFI_PCM2CV(allpass_pcm[i][ap_head]);
+                    int32_t feedbackmix = constrain(((tapeout * 50 / 100  + dry) + 32512),locliplimit, cliplimit) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
                     allpass_pcm[i][writehead] = (char)feedbackmix; 
-                    mix =  (tapeout - ((tapeout * 50/100) + dry) * 50/100 ) / 2; freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback; //
-                    //blows up if not divided by 2   
+                    mix =  (tapeout - ((tapeout * 50/100) + dry) * 50/100 ); //freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback;
+                       
 
                 
                     //mix = tapeout + dry*(-1);//orig. freeverb
@@ -146,7 +146,7 @@ protected:
 private:
     char pcm[HEM_LOFI_VERB_BUFFER_SIZE];
     uint16_t multitap_heads[8] = {438,613,565,538,484,514,450,422}; //adapted for 16.7khz
-    uint32_t allpass_delay_times[4] = {85,210,167,129}; //adapted for 16.7khz
+    uint32_t allpass_delay_times[4] = {85,129,167,210}; //adapted for 16.7khz
     char allpass_pcm[4][HEM_LOFI_VERB_ALLPASS_SIZE]; //4 buffers of 105 samples each
     bool record = 0; // Record always on
     bool gated_record = 0; // Record gated via digital in
@@ -160,8 +160,8 @@ private:
     int countdown = HEM_LOFI_VERB_SPEED;
     int length = HEM_LOFI_VERB_BUFFER_SIZE;
     int ap_length = HEM_LOFI_VERB_ALLPASS_SIZE;
-    uint32_t cliplimit = 32512;
-    int8_t ap_hiclip = 127;
+    int32_t cliplimit = 32512;
+    int32_t locliplimit = 0;
     int8_t ap_loclip = -127;
     int selected; //for gui
      

@@ -48,11 +48,11 @@ public:
             }
             int dt = delaytime_pct * length / 100; //convert delaytime to length in samples 
             int writehead = (head+length + dt) % length; //have to add the extra length to keep modulo positive in case delaytime is neg
-            uint32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
-            uint32_t feedbackmix = (min((tapeout * feedback / 100  + In(0)), cliplimit) + 32512) >> 8; //add to the feedback, offset and bitshift down
+            int32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
+            int32_t feedbackmix = constrain(((tapeout * feedback / 100  + In(0)) + 32512), locliplimit, cliplimit) >> 8; //add to the feedback, offset and bitshift down
             pcm[writehead] = (char)feedbackmix;
             
-            uint32_t s = LOFI_PCM2CV(pcm[head]);
+            int32_t s = LOFI_PCM2CV(pcm[head]);
             int SOS = In(1); // Sound-on-sound
             int live = Proportion(SOS, HEMISPHERE_MAX_CV, In(0)); //max_cv is 7680 scales vol. of live 
             int loop = play ? Proportion(HEMISPHERE_MAX_CV - SOS, HEMISPHERE_MAX_CV, s) : 0;
@@ -110,7 +110,9 @@ private:
     int feedback = 50;
     int countdown = HEM_LOFI_PCM_SPEED;
     int length = HEM_LOFI_PCM_BUFFER_SIZE;
-    uint32_t cliplimit = 32512;
+    int32_t cliplimit = 65024;
+    int32_t locliplimit = 0;
+
     int selected; //for gui
      
     
