@@ -23,7 +23,7 @@
 
 #define HEM_LOFI_VERB_SPEED 2 //cant be lower than 2 for memory reasons unless lofi echo is removed
 
-#define LOFI_PCM2CV(S) ((uint32_t)S << 8) - 32512 //32767 is 128 << 8 32512 is 127 << 8 // 0-126 is neg, 127 is 0, 128-254 is pos
+#define LOFI_PCM2CV(S) ((int32_t)S << 8) - 32512 //32767 is 128 << 8 32512 is 127 << 8 // 0-126 is neg, 127 is 0, 128-254 is pos
 
 class LoFiVerb : public HemisphereApplet {
 public:
@@ -64,7 +64,7 @@ public:
                 int dt = multitap_heads[i] / HEM_LOFI_VERB_SPEED; //convert delaytime to length in samples 
                 int writehead = (head+length + dt) % length; //have to add the extra length to keep modulo positive in case delaytime is neg   
                 int32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
-                int32_t feedbackmix = constrain(((tapeout * feedback / 100  + In(0)) + 32512), locliplimit, cliplimit) >> 8; //add to the feedback, offset and bitshift down
+                int32_t feedbackmix = constrain(((tapeout * feedback / 100  + In(0)) + 32640), locliplimit, cliplimit) >> 8; //add to the feedback, offset and bitshift down
                 pcm[writehead] = (char)feedbackmix;
             }
 
@@ -78,7 +78,7 @@ public:
                     int dt = allpass_delay_times[i] / HEM_LOFI_VERB_SPEED; //delay time
                     int writehead = (ap_head + ap_length + dt) % ap_length; //add delay time to get write location
                     int32_t tapeout = LOFI_PCM2CV(allpass_pcm[i][ap_head]);
-                    int32_t feedbackmix = constrain(((tapeout * 50 / 100  + dry) + 32512),locliplimit, cliplimit) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
+                    int32_t feedbackmix = constrain(((tapeout * 50 / 100  + dry) + 32640),locliplimit, cliplimit) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
                     allpass_pcm[i][writehead] = (char)feedbackmix; 
                     mix =  (tapeout - ((tapeout * 50/100) + dry) * 50/100 ); //freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback;
                        
@@ -160,7 +160,7 @@ private:
     int countdown = HEM_LOFI_VERB_SPEED;
     int length = HEM_LOFI_VERB_BUFFER_SIZE;
     int ap_length = HEM_LOFI_VERB_ALLPASS_SIZE;
-    int32_t cliplimit = 32512;
+    int32_t cliplimit = 65024;
     int32_t locliplimit = 0;
     int8_t ap_loclip = -127;
     int selected; //for gui

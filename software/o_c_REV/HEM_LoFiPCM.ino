@@ -20,7 +20,7 @@
 
 #define HEM_LOFI_PCM_BUFFER_SIZE 2048
 #define HEM_LOFI_PCM_SPEED 8
-#define LOFI_PCM2CV(S) ((uint32_t)S << 8) - 32512 //32767 is 128 << 8 32512 is 127 << 8 // 0-126 is neg, 127 is 0, 128-254 is pos
+#define LOFI_PCM2CV(S) ((int32_t)S << 8) - 32512 //32767 is 128 << 8 32512 is 127 << 8 // 0-126 is neg, 127 is 0, 128-254 is pos
 
 class LoFiPCM : public HemisphereApplet {
 public:
@@ -49,7 +49,7 @@ public:
             int dt = delaytime_pct * length / 100; //convert delaytime to length in samples 
             int writehead = (head+length + dt) % length; //have to add the extra length to keep modulo positive in case delaytime is neg
             int32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
-            int32_t feedbackmix = constrain(((tapeout * feedback / 100  + In(0)) + 32512), locliplimit, cliplimit) >> 8; //add to the feedback, offset and bitshift down
+            int32_t feedbackmix = constrain(((tapeout * feedback / 100  + In(0)) + 32640), locliplimit, cliplimit) >> 8; //add to the feedback, offset and bitshift down; 32640 to fix rounding error
             pcm[writehead] = (char)feedbackmix;
             
             int32_t s = LOFI_PCM2CV(pcm[head]);
