@@ -9,7 +9,7 @@ Hemisphere Suite: Alternate Alternate Firmware for Ornament and Crime
 
 On your old computer dumba**
 
-This branch makes a very lofi tape delay out of the lofi recorder
+This branch makes a very lofi tape delay out of the lofi recorder and replaces boots + cats with a very lofi reverb based on freeverb 3. 
 
 
 
