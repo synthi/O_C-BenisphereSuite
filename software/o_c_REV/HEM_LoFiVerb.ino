@@ -78,9 +78,9 @@ public:
                     int dt = allpass_delay_times[i] / HEM_LOFI_VERB_SPEED; //delay time
                     int writehead = (ap_head + ap_length + dt) % ap_length; //add delay time to get write location
                     int32_t tapeout = LOFI_PCM2CV(allpass_pcm[i][ap_head]);
-                    int32_t feedbackmix = constrain(((tapeout * 50 / 100  + dry) + 32640),locliplimit, cliplimit) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
+                    int32_t feedbackmix = constrain(((tapeout * feedback2 / 100  + dry) + 32640),locliplimit, cliplimit) >> 8; //add to the feedback (50%), clip at 127 //buffer[bufidx] = input + (bufout*feedback);
                     allpass_pcm[i][writehead] = (char)feedbackmix; 
-                    mix =  (tapeout - ((tapeout * 50/100) + dry) * 50/100 ); //freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback;
+                    mix =  (tapeout - ((tapeout * feedback2/100) + dry) * feedback2/100 ); //freeverb 3: _fv3_float_t output = bufout - buffer[bufidx] * feedback;
                        
 
                 
@@ -111,13 +111,15 @@ public:
     }
 
     void OnButtonPress() {
-        selected = 1 - selected;
+        if (++selected > 3) selected = 0;
         ResetCursor();
     }
 
     void OnEncoderMove(int direction) {
         if (selected == 0) allpass =  constrain(allpass += direction, 0, 1);
         if (selected == 1) feedback = constrain(feedback += direction, 0, 99);
+        if (selected == 3) feedback2 = constrain(feedback2 += direction, 0, 99);
+
 
         //amp_offset_cv = Proportion(amp_offset_pct, 100, HEMISPHERE_MAX_CV);
         //p[cursor] = constrain(p[cursor] += direction, 0, 100);
@@ -157,6 +159,7 @@ private:
     
     //int delaytime_pct = 50; //delaytime as percentage of delayline buffer
     int feedback = 80;
+    int feedback2 = 50;
     int countdown = HEM_LOFI_VERB_SPEED;
     int length = HEM_LOFI_VERB_BUFFER_SIZE;
     int ap_length = HEM_LOFI_VERB_ALLPASS_SIZE;
@@ -164,7 +167,7 @@ private:
     int32_t locliplimit = 0;
     int8_t ap_loclip = -127;
     int selected; //for gui
-     
+
     
     void DrawWaveform() {
         int inc = HEM_LOFI_VERB_BUFFER_SIZE / 256;
@@ -194,12 +197,17 @@ private:
     
     void DrawSelector()
     {
-        for (int param = 0; param < 2; param++)
-        {
-            gfxPrint(31 * param, 15, param ? "fb: " : "ap: ");
+        for (int param = 0; param < 4; param++)
+        { 
+            if(param == 0 || param == 1) gfxPrint(31 * param, 15, param ? "fb: " : "ap: ");
+            if(param == 2 || param == 3) gfxPrint(31 * (param - 2), 30, param ? "f2: " : ": ");
+
             gfxPrint(16, 15, allpass);
             gfxPrint(48, 15, feedback);
-            if (param == selected) gfxCursor(0 + (31 * param), 23, 30);
+            gfxPrint(48, 30, feedback2);
+            if (param == selected){
+              gfxCursor(31 * (param % 2), (15*(param/2))+23, 30);
+            }
         }
     }
     
