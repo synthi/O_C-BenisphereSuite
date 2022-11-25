@@ -49,21 +49,14 @@ public:
     void OnButtonPress() { }
 
     void OnEncoderMove(int direction) {
-        uint16_t bpm = clock_m->GetTempo();
-        bpm += direction;
-        clock_m->SetTempoBPM(bpm);
+        clock_m->SetTempoBPM(clock_m->GetTempo() + direction);
     }
         
     uint64_t OnDataRequest() {
-        uint64_t data = 0;
-        Pack(data, PackLocation {0,16}, clock_m->GetTempo());
-        Pack(data, PackLocation {16,5}, clock_m->GetMultiply() - 1);
-        return data;
+        return 0;
     }
 
     void OnDataReceive(uint64_t data) {
-        clock_m->SetTempoBPM(Unpack(data, PackLocation {0,16}));
-        clock_m->SetMultiply(Unpack(data, PackLocation {16,5}) + 1);
     }
 
 protected:
@@ -77,7 +70,6 @@ protected:
     }
     
 private:
-    int cursor; // 0=Tempo, 1=Multiply, 2=Start/Stop
     ClockManager *clock_m = clock_m->get();
     
     void DrawInterface() {

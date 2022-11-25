@@ -88,22 +88,22 @@ public:
         cycle = 1 - cycle;
     }
 
-    void Start() {
+    void Start(bool p = 0) {
         // forwarded = 0; // NJM- logical clock can be forwarded, too
         running = 1;
-        Unpause();
+        paused = p;
     }
 
     void Stop() {
         running = 0;
-        Unpause();
+        paused = 0;
     }
 
     void Pause() {paused = 1;}
 
-    void Unpause() {paused = 0;}
-
     void ToggleForwarding() {forwarded = 1 - forwarded;}
+
+    void SetForwarding(bool f) {forwarded = f;}
 
     bool IsRunning() {return (running && !paused);}
 
