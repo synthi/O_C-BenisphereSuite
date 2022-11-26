@@ -40,7 +40,8 @@ public:
     }
 
     void OnEncoderMove(int direction) {
-        if (cursor == 0) { // Source
+        switch (cursor) {
+        case 0: // Source
             if (direction > 0) // right turn toggles Forwarding
                 clock_m->ToggleForwarding();
             else if (clock_m->IsRunning()) // left turn toggles clock
@@ -49,18 +50,15 @@ public:
                 clock_m->Start();
                 clock_m->Reset();
             }
-        }
+            break;
 
-        if (cursor == 1) { // Set tempo
-            uint16_t bpm = clock_m->GetTempo();
-            bpm += direction;
-            clock_m->SetTempoBPM(bpm);
-        }
+        case 1: // Set tempo
+            clock_m->SetTempoBPM(clock_m->GetTempo() + direction);
+            break;
 
-        if (cursor == 2) { // Set multiplier
-            int8_t mult = clock_m->GetMultiply();
-            mult += direction;
-            clock_m->SetMultiply(mult);
+        case 2: // Set multiplier
+            clock_m->SetMultiply(clock_m->GetMultiply() + direction);
+            break;
         }
     }
 
