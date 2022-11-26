@@ -64,10 +64,20 @@ public:
                 int dt = multitap_heads[i] / HEM_LOFI_VERB_SPEED; //convert delaytime to length in samples 
                 int writehead = (head+length + dt) % length; //have to add the extra length to keep modulo positive in case delaytime is neg   
                 int32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset);
-                if (dampen_on != 0) { //averages with previous value, rudimentary lowpass -6db/oct at 1/2 sample rate                                                            
-                    tapeout = (tapeout + dampen[i])/2;   
-                    dampen[i] = tapeout; //store 
+                
+                if (dampen_on != 0) { //lowpass filter at cutoff freq                                                           
+                    int w = 2*8300; //2 x samplerate
+                    cutoff *= 2 * 22 / 7; // cutoff * 2 * pi;
+                    int norm = 1/(cutoff + w);
+                    int b1 =  (w - cutoff) * norm;
+                    int a0 = cutoff * norm;
+                    int a1 = a0;
+                    int32_t last_out = LOFI_PCM2CV(pcm[writehead - 1]);
+                    int32_t damp_out = tapeout * a0 + dampen[i] * a1 + last_out * b1; 
+                    dampen[i] = tapeout; //dampen [i] is last input
+                    tapeout = damp_out;
                     };    
+                    
                 int32_t feedbackmix = constrain(((tapeout * feedback / 100  + In(0)) + 32640), locliplimit, cliplimit) >> 8; //add to the feedback, offset and bitshift down
                 pcm[writehead] = (char)feedbackmix;
             }
@@ -154,25 +164,24 @@ private:
     uint16_t multitap_heads[8] = {438,613,565,538,484,514,450,422}; //adapted for 16.7khz
     uint16_t allpass_delay_times[4] = {85,129,167,210}; //adapted for 16.7khz
     char allpass_pcm[4][HEM_LOFI_VERB_ALLPASS_SIZE]; //4 buffers of 105 samples each
-    int32_t dampen[8] = {0,0,0,0,0,0,0,0}; //stores the last value for dampening/averaging
-    int32_t ap_dampen=0;
-    
+    int32_t dampen[8] = {0,0,0,0,0,0,0,0}; //stores the last value for dampening/averaging    
     bool record = 0; // Record always on
     bool gated_record = 0; // Record gated via digital in
     bool play = 0; //play always on
     int head = 0; // Location of delay head
     int ap_head = 0; // Location of allpass head
-    int allpass = 1; //allpass on or off
-    int dampen_on = 0; //dampen on or off
-    int feedback = 80;
-    int feedback2 = 50;
+    bool allpass = 1; //allpass on or off
+    bool dampen_on = 0; //dampen on or off
+    int8_t feedback = 80;
+    int8_t feedback2 = 50;
     int countdown = HEM_LOFI_VERB_SPEED;
     int length = HEM_LOFI_VERB_BUFFER_SIZE;
     int ap_length = HEM_LOFI_VERB_ALLPASS_SIZE;
     int32_t cliplimit = 65024;
     int32_t locliplimit = 0;
     int selected; //for gui
- 
+    int cutoff = 400;
+    
     void DrawSelector()
     {
         for (int param = 0; param < 4; param++)
@@ -190,37 +199,7 @@ private:
         }
     }
     
-    
-    
- /*   void DrawStop(int x, int y) {
-        if (record || play || gated_record) gfxFrame(x, y, 11, 11);
-        else gfxRect(x, y, 11, 11);
-    }
-    
-    void DrawPlay(int x, int y) {
-        if (play) {
-            for (int i = 0; i < 11; i += 2)
-            {
-                gfxLine(x + i, y + i/2, x + i, y + 10 - i/2);
-                gfxLine(x + i + 1, y + i/2, x + i + 1, y + 10 - i/2);
-            }
-        } else {
-            gfxLine(x, y, x, y + 10);
-            gfxLine(x, y, x + 10, y + 5);
-            gfxLine(x, y + 10, x + 10, y + 5);
-        }
-    }
-    void DrawRecord(int x, int y) {
-        gfxCircle(x + 5, y + 5, 5);
-        if (record || gated_record) {
-            for (int r = 1; r < 5; r++)
-            {
-                gfxCircle(x + 5, y + 5, r);
-            }
-        }
-    }
-*/    
-    
+
 };
 
 
