@@ -63,7 +63,11 @@ public:
             for (int i = 0; i < 8; i++){ //for each of the 8 multitap heads; 
                 int dt = multitap_heads[i] / HEM_LOFI_VERB_SPEED; //convert delaytime to length in samples 
                 int writehead = (head+length + dt) % length; //have to add the extra length to keep modulo positive in case delaytime is neg   
-                int32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset)
+                int32_t tapeout = LOFI_PCM2CV(pcm[head]); // get the char out from the array and convert back to cv (de-offset);
+                if (dampen_on != 0) { //averages with previous value, rudimentary lowpass -6db/oct at 1/2 sample rate                                                            
+                    tapeout = (tapeout + dampen[i])/2;   
+                    dampen[i] = tapeout; //store 
+                    };    
                 int32_t feedbackmix = constrain(((tapeout * feedback / 100  + In(0)) + 32640), locliplimit, cliplimit) >> 8; //add to the feedback, offset and bitshift down
                 pcm[writehead] = (char)feedbackmix;
             }
@@ -118,8 +122,8 @@ public:
     void OnEncoderMove(int direction) {
         if (selected == 0) allpass =  constrain(allpass += direction, 0, 1);
         if (selected == 1) feedback = constrain(feedback += direction, 0, 99);
+        if (selected == 2) dampen_on = constrain(dampen_on += direction, 0, 1);
         if (selected == 3) feedback2 = constrain(feedback2 += direction, 0, 99);
-
 
         //amp_offset_cv = Proportion(amp_offset_pct, 100, HEMISPHERE_MAX_CV);
         //p[cursor] = constrain(p[cursor] += direction, 0, 100);
@@ -148,16 +152,18 @@ protected:
 private:
     char pcm[HEM_LOFI_VERB_BUFFER_SIZE];
     uint16_t multitap_heads[8] = {438,613,565,538,484,514,450,422}; //adapted for 16.7khz
-    uint32_t allpass_delay_times[4] = {85,129,167,210}; //adapted for 16.7khz
+    uint16_t allpass_delay_times[4] = {85,129,167,210}; //adapted for 16.7khz
     char allpass_pcm[4][HEM_LOFI_VERB_ALLPASS_SIZE]; //4 buffers of 105 samples each
+    int32_t dampen[8] = {0,0,0,0,0,0,0,0}; //stores the last value for dampening/averaging
+    int32_t ap_dampen=0;
+    
     bool record = 0; // Record always on
     bool gated_record = 0; // Record gated via digital in
     bool play = 0; //play always on
-    int head = 0; // Locatioon of delay head
-    int ap_head = 0; // Locatioon of allpass head
+    int head = 0; // Location of delay head
+    int ap_head = 0; // Location of allpass head
     int allpass = 1; //allpass on or off
-    
-    //int delaytime_pct = 50; //delaytime as percentage of delayline buffer
+    int dampen_on = 0; //dampen on or off
     int feedback = 80;
     int feedback2 = 50;
     int countdown = HEM_LOFI_VERB_SPEED;
@@ -165,45 +171,18 @@ private:
     int ap_length = HEM_LOFI_VERB_ALLPASS_SIZE;
     int32_t cliplimit = 65024;
     int32_t locliplimit = 0;
-    int8_t ap_loclip = -127;
     int selected; //for gui
-
-    
-    void DrawWaveform() {
-        int inc = HEM_LOFI_VERB_BUFFER_SIZE / 256;
-        int disp[32];
-        int high = 1;
-        int pos = head - (inc * 15) - random(1,3); // Try to center the head
-        if (head < 0) head += length;
-        for (int i = 0; i < 32; i++)
-        {
-            int v = (int)pcm[pos] - 127;
-            if (v < 0) v = 0;
-            if (v > high) high = v;
-            pos += inc;
-            if (pos >= HEM_LOFI_VERB_BUFFER_SIZE) pos -= length;
-            disp[i] = v;
-        }
-        
-        for (int x = 0; x < 32; x++)
-        {
-            int height = Proportion(disp[x], high, 30);
-            int margin = (32 - height) / 2;
-            gfxLine(x * 2, 30 + margin, x * 2, height + 30 + margin);
-        }
-    }
-    
-
-    
+ 
     void DrawSelector()
     {
         for (int param = 0; param < 4; param++)
         { 
-            if(param == 0 || param == 1) gfxPrint(31 * param, 15, param ? "fb: " : "ap: ");
-            if(param == 2 || param == 3) gfxPrint(31 * (param - 2), 30, param ? "f2: " : ": ");
+            if(param == 0 || param == 1) gfxPrint(31 * param, 15, param ? "Fb: " : "Ap: ");
+            if(param == 2 || param == 3) gfxPrint(31 * (param - 2), 30, (param - 2) ? "f2: " : "Dm: ");
 
             gfxPrint(16, 15, allpass);
             gfxPrint(48, 15, feedback);
+            gfxPrint(16, 30, dampen_on);
             gfxPrint(48, 30, feedback2);
             if (param == selected){
               gfxCursor(31 * (param % 2), (15*(param/2))+23, 30);
