@@ -44,7 +44,7 @@
 #define HEMISPHERE_CHANGE_THRESHOLD 32
 
 #ifdef BUCHLA_4U
-#define PULSE_VOLTAGE 8
+#define PULSE_VOLTAGE 9
 #else
 #define PULSE_VOLTAGE 5
 #endif
