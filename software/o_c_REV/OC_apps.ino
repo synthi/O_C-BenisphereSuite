@@ -43,6 +43,9 @@ OC::App available_apps[] = {
   #ifdef ENABLE_APP_DARKEST_TIMELINE
   DECLARE_APP('D','2', "Darkest Timeline", TheDarkestTimeline),
   #endif
+  #ifdef ENABLE_APP_MELODYMAKER
+  DECLARE_APP('M','M', "Melody Maker", MelodyMaker),
+  #endif
   #ifdef ENABLE_APP_ENIGMA
   DECLARE_APP('E','N', "Enigma", EnigmaTMWS),
   #endif
