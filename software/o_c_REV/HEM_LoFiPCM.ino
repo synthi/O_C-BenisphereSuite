@@ -20,8 +20,12 @@
 
 #define HEM_LOFI_PCM_BUFFER_SIZE 2048
 #define HEM_LOFI_PCM_SPEED 4
-// #define CLIPLIMIT 6144 // 4V
+
+// #define CLIPLIMIT 32512
 #define CLIPLIMIT HEMISPHERE_3V_CV
+
+#define PCM_TO_CV(S) Proportion((int)S - 127, 128, CLIPLIMIT)
+#define CV_TO_PCM(S) Proportion(constrain(S, -CLIPLIMIT, CLIPLIMIT), CLIPLIMIT, 128) + 127
 
 class LoFiPCM : public HemisphereApplet {
 public:
@@ -32,7 +36,7 @@ public:
 
     void Start() {
         countdown = HEM_LOFI_PCM_SPEED;
-        for (int i = 0; i < HEM_LOFI_PCM_BUFFER_SIZE; i++) pcm[i] = 0;
+        for (int i = 0; i < HEM_LOFI_PCM_BUFFER_SIZE; i++) pcm[i] = 127;
         cursor = 1; //for gui
     }
 
@@ -47,7 +51,7 @@ public:
                     //ClockOut(1);
                 }
 
-                int16_t cv = In(0);
+                int cv = In(0);
                 int cv2 = DetentedIn(1);
 
                 // bitcrush the input
@@ -58,10 +62,11 @@ public:
                 head_w = (head + length + dt_pct*length/100) % length; //have to add the extra length to keep modulo positive in case delaytime is neg
 
                 // mix input into the buffer ahead, respecting feedback
-                pcm[head_w] = constrain((pcm[head] * fdbk_g / 100 + cv), -CLIPLIMIT, CLIPLIMIT);
+                int fbmix = PCM_TO_CV(pcm[head]) * fdbk_g / 100 + cv;
+                pcm[head_w] = CV_TO_PCM(fbmix);
                 
-                Out(0, pcm[head]);
-                Out(1, pcm[length-1 - head]); // reverse buffer!
+                Out(0, PCM_TO_CV(pcm[head]));
+                Out(1, PCM_TO_CV(pcm[length-1 - head])); // reverse buffer!
 
                 rate_mod = constrain( rate + Proportion(cv2, HEMISPHERE_MAX_CV, 32), 1, 64);
                 countdown = rate_mod;
@@ -83,16 +88,16 @@ public:
     void OnEncoderMove(int direction) {
         switch (cursor) {
         case 0:
-            dt_pct = constrain(dt_pct += direction, 0, 99);
+            dt_pct = constrain(dt_pct + direction, 0, 99);
             break;
         case 1:
-            feedback = constrain(feedback += direction, 0, 125);
+            feedback = constrain(feedback + direction, 0, 125);
             break;
         case 2:
-            rate = constrain(rate += direction, 1, 32);
+            rate = constrain(rate + direction, 1, 32);
             break;
         case 3:
-            depth = constrain(depth += direction, 0, 13);
+            depth = constrain(depth + direction, 0, 13);
             break;
         }
 
@@ -129,7 +134,7 @@ protected:
 private:
     const int length = HEM_LOFI_PCM_BUFFER_SIZE;
 
-    int16_t pcm[HEM_LOFI_PCM_BUFFER_SIZE];
+    uint8_t pcm[HEM_LOFI_PCM_BUFFER_SIZE];
     bool play = 0; //play always on unless gated on Digital 1
     uint16_t head = 0; // Location of read/play head
     uint16_t head_w = 0; // Location of write/record head
@@ -139,7 +144,7 @@ private:
     int8_t countdown = HEM_LOFI_PCM_SPEED;
     uint8_t rate = HEM_LOFI_PCM_SPEED;
     uint8_t rate_mod = rate;
-    int depth = 1; // bit reduction depth aka bitcrush
+    int depth = 0; // bit reduction depth aka bitcrush
     uint8_t cursor; //for gui
     
     void DrawWaveform() {
@@ -148,7 +153,7 @@ private:
         if (pos < 0) pos += length;
         for (int i = 0; i < 64; i++)
         {
-            int height = Proportion(pcm[pos], CLIPLIMIT, 16);
+            int height = Proportion((int)pcm[pos]-127, 128, 16);
             gfxLine(i, 46, i, 46+height);
 
             pos += inc;
