@@ -42,7 +42,7 @@
 #include "HSClockManager.h"
 
 #ifdef BUCHLA_4U
-#define PULSE_VOLTAGE 8
+#define PULSE_VOLTAGE 9
 #define HEMISPHERE_MAX_CV 15360
 #define HEMISPHERE_CENTER_CV 7680 // 5V
 #define HEMISPHERE_MIN_CV 0
